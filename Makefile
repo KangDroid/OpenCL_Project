@@ -1,7 +1,8 @@
 CC=g++
 CFLAGS=-Wall -O3 -framework OpenCL
 TARGET=app.out
-OBJS=OpenCLInitHelper.o
+OBJS=OpenCLInitHelper.o\
+	Main.o
 	
 %.o: %.cpp
 	$(CC) $(CFLAGS) -c $< -o $@
