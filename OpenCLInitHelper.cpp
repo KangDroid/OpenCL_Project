@@ -130,15 +130,13 @@ cl_program OpenCLInitHelper::CreateProgram(cl_context context, cl_device_id devi
     return program;
 }
 
-bool OpenCLInitHelper::CreateMemObjects(cl_context context, cl_mem memObjects[3], float *a, float *b) {
+bool OpenCLInitHelper::CreateMemObjects(cl_context context, cl_mem memObjects[2], char* source, int& length) {
     memObjects[0] = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-                                sizeof(float) * ARRAY_SIZE, a, NULL);
-    memObjects[1] = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-                                sizeof(float) * ARRAY_SIZE, b, NULL);
-    memObjects[2] = clCreateBuffer(context, CL_MEM_READ_WRITE,
-                                sizeof(float) * ARRAY_SIZE, NULL, NULL);
+                                sizeof(char) * length, source, NULL);
+    memObjects[1] = clCreateBuffer(context, CL_MEM_READ_WRITE,
+                                sizeof(char) * length, NULL, NULL);
 
-    if (memObjects[0] == NULL || memObjects[1] == NULL || memObjects[2] == NULL)
+    if (memObjects[0] == NULL || memObjects[1] == NULL)
     {
         std::cerr << "Error creating memory objects." << std::endl;
         return false;
@@ -147,8 +145,8 @@ bool OpenCLInitHelper::CreateMemObjects(cl_context context, cl_mem memObjects[3]
     return true;
 }
 
-void OpenCLInitHelper::Cleanup(cl_context context, cl_command_queue commandQueue, cl_program program, cl_kernel kernel, cl_mem memObjects[3]) {
-    for (int i = 0; i < 3; i++)
+void OpenCLInitHelper::Cleanup(cl_context context, cl_command_queue commandQueue, cl_program program, cl_kernel kernel, cl_mem memObjects[2]) {
+    for (int i = 0; i < 2; i++)
     {
         if (memObjects[i] != 0)
             clReleaseMemObject(memObjects[i]);

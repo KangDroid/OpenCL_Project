@@ -1,8 +1,23 @@
 #include "OpenCLInitHelper.h"
 
+char* fileToArray(string file_destination, int& length_return) {
+    ifstream ifs(file_destination);
+    ostringstream oss;
+    oss << ifs.rdbuf();
+
+    string srcStdStr = oss.str();
+
+    length_return = srcStdStr.length();
+    char* array_dyn = new char[length_return];
+    for (int i = 0; i < length_return; i++) {
+        array_dyn[i] = srcStdStr.at(i);
+    }
+
+    return array_dyn;
+}
+
 int main(void) {
     OpenCLInitHelper init_helper;
-    const int ARRAY_SIZE = 1000;
 
     // OpenCL variables
     cl_context context = 0;
@@ -10,7 +25,7 @@ int main(void) {
     cl_program program = 0;
     cl_device_id device = 0;
     cl_kernel kernel = 0;
-    cl_mem memObjects[3] = { 0, 0, 0 };
+    cl_mem memObjects[2] = { 0, 0};
     cl_int errNum;
 
     // Create an OpenCL context on first available platform
@@ -50,16 +65,11 @@ int main(void) {
     // Create memory objects that will be used as arguments to
     // kernel.  First create host memory arrays that will be
     // used to store the arguments to the kernel
-    float result[ARRAY_SIZE];
-    float a[ARRAY_SIZE];
-    float b[ARRAY_SIZE];
-    for (int i = 0; i < ARRAY_SIZE; i++)
-    {
-        a[i] = (float)i;
-        b[i] = (float)(i * 2);
-    }
+    int length_source;
+    char* source_array = fileToArray("test.txt", length_source);
+    char* result_array = new char[length_source];
 
-    if (!init_helper.CreateMemObjects(context, memObjects, a, b))
+    if (!init_helper.CreateMemObjects(context, memObjects, source_array, length_source))
     {
         init_helper.Cleanup(context, commandQueue, program, kernel, memObjects);
         return 1;
@@ -68,7 +78,6 @@ int main(void) {
     // Set the kernel arguments (result, a, b)
     errNum = clSetKernelArg(kernel, 0, sizeof(cl_mem), &memObjects[0]);
     errNum |= clSetKernelArg(kernel, 1, sizeof(cl_mem), &memObjects[1]);
-    errNum |= clSetKernelArg(kernel, 2, sizeof(cl_mem), &memObjects[2]);
     if (errNum != CL_SUCCESS)
     {
         std::cerr << "Error setting kernel arguments." << std::endl;
@@ -76,7 +85,7 @@ int main(void) {
         return 1;
     }
 
-    size_t globalWorkSize[1] = { ARRAY_SIZE };
+    size_t globalWorkSize[1] = { length_source };
     size_t localWorkSize[1] = { 1 };
 
     // Queue the kernel up for execution across the array
@@ -91,8 +100,8 @@ int main(void) {
     }
 
     // Read the output buffer back to the Host
-    errNum = clEnqueueReadBuffer(commandQueue, memObjects[2], CL_TRUE,
-                                 0, ARRAY_SIZE * sizeof(float), result,
+    errNum = clEnqueueReadBuffer(commandQueue, memObjects[1], CL_TRUE,
+                                 0, length_source * sizeof(char), result_array,
                                  0, NULL, NULL);
     if (errNum != CL_SUCCESS)
     {
@@ -102,13 +111,15 @@ int main(void) {
     }
 
     // Output the result buffer
-    for (int i = 0; i < ARRAY_SIZE; i++)
+    for (int i = 0; i < length_source; i++)
     {
-        std::cout << result[i] << " ";
+        std::cout << result_array[i] << " ";
     }
     std::cout << std::endl;
     std::cout << "Executed program succesfully." << std::endl;
     init_helper.Cleanup(context, commandQueue, program, kernel, memObjects);
+    delete[] source_array;
+    delete[] result_array;
 
     return 0;
 }

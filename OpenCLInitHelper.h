@@ -12,7 +12,6 @@ using namespace std;
 
 class OpenCLInitHelper {
 private:
-    const int ARRAY_SIZE = 1000;
 public:
     ///
     //  Create an OpenCL context on the first available platform using
@@ -36,7 +35,7 @@ public:
     //  The kernel takes three arguments: result (output), a (input),
     //  and b (input)
     //
-    bool CreateMemObjects(cl_context context, cl_mem memObjects[3], float *a, float *b);
+    bool CreateMemObjects(cl_context context, cl_mem memObjects[2], char* source, int& length);
 
     ///
     //  Cleanup any created OpenCL resources

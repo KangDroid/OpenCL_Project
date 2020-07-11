@@ -1,8 +1,7 @@
-__kernel void hello_kernel(__global const float *a,
-						__global const float *b,
-						__global float *result)
+__kernel void hello_kernel(__global const char *a,
+						__global char *result)
 {
     int gid = get_global_id(0);
 
-    result[gid] = a[gid] + b[gid];
+    result[gid] = a[gid] + 2;
 }
