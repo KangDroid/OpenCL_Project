@@ -8,6 +8,7 @@ char* fileToArray(string file_destination, int& length_return) {
     string srcStdStr = oss.str();
 
     length_return = srcStdStr.length();
+    cout << srcStdStr.length() << endl;
     char* array_dyn = new char[length_return];
     for (int i = 0; i < length_return; i++) {
         array_dyn[i] = srcStdStr.at(i);
@@ -66,57 +67,74 @@ int main(void) {
     // kernel.  First create host memory arrays that will be
     // used to store the arguments to the kernel
     int length_source;
-    char* source_array = fileToArray("test.txt", length_source);
+    char* source_array = fileToArray("test.mp4", length_source);
     char* result_array = new char[length_source];
-
-    if (!init_helper.CreateMemObjects(context, memObjects, source_array, length_source))
-    {
-        init_helper.Cleanup(context, commandQueue, program, kernel, memObjects);
-        return 1;
+    int to_cut = 8192*4;
+    int iter_count = length_source / to_cut;
+    int iter_remainder = length_source % to_cut;
+    if (iter_remainder > 1) {
+        iter_count++;
     }
+    cout << iter_count << endl;
+    for (int i = 0; i < iter_count; i++) {
+        int length_to_send = to_cut;
+        char* actual_array = source_array + (i * to_cut);
 
-    // Set the kernel arguments (result, a, b)
-    errNum = clSetKernelArg(kernel, 0, sizeof(cl_mem), &memObjects[0]);
-    errNum |= clSetKernelArg(kernel, 1, sizeof(cl_mem), &memObjects[1]);
-    if (errNum != CL_SUCCESS)
-    {
-        std::cerr << "Error setting kernel arguments." << std::endl;
-        init_helper.Cleanup(context, commandQueue, program, kernel, memObjects);
-        return 1;
-    }
+        if (i == iter_count - 1) {
+            length_to_send = iter_remainder;
+        }
+        if (!init_helper.CreateMemObjects(context, memObjects, actual_array, length_to_send))
+        {
+            init_helper.Cleanup(context, commandQueue, program, kernel, memObjects);
+            return 1;
+        }
 
-    size_t globalWorkSize[1] = { length_source };
-    size_t localWorkSize[1] = { 1 };
+        // Set the kernel arguments (result, a, b)
+        errNum = clSetKernelArg(kernel, 0, sizeof(cl_mem), &memObjects[0]);
+        errNum |= clSetKernelArg(kernel, 1, sizeof(cl_mem), &memObjects[1]);
+        if (errNum != CL_SUCCESS)
+        {
+            std::cerr << "Error setting kernel arguments." << std::endl;
+            init_helper.Cleanup(context, commandQueue, program, kernel, memObjects);
+            return 1;
+        }
 
-    // Queue the kernel up for execution across the array
-    errNum = clEnqueueNDRangeKernel(commandQueue, kernel, 1, NULL,
-                                    globalWorkSize, localWorkSize,
+        size_t globalWorkSize[1] = { length_to_send };
+        size_t localWorkSize[1] = { 1 };
+
+        // Queue the kernel up for execution across the array
+        errNum = clEnqueueNDRangeKernel(commandQueue, kernel, 1, NULL,
+                                        globalWorkSize, localWorkSize,
+                                        0, NULL, NULL);
+        if (errNum != CL_SUCCESS)
+        {
+            std::cerr << "Error queuing kernel for execution." << std::endl;
+            cerr << errNum << endl;
+            init_helper.Cleanup(context, commandQueue, program, kernel, memObjects);
+            return 1;
+        }
+
+        // Read the output buffer back to the Host
+        errNum = clEnqueueReadBuffer(commandQueue, memObjects[1], CL_TRUE,
+                                    0, length_to_send * sizeof(char), result_array,
                                     0, NULL, NULL);
-    if (errNum != CL_SUCCESS)
-    {
-        std::cerr << "Error queuing kernel for execution." << std::endl;
-        init_helper.Cleanup(context, commandQueue, program, kernel, memObjects);
-        return 1;
+        if (errNum != CL_SUCCESS)
+        {
+            std::cerr << "Error reading result buffer." << std::endl;
+            init_helper.Cleanup(context, commandQueue, program, kernel, memObjects);
+            return 1;
+        }
+
+        // Output the result buffer
+        ofstream outfile("enc_test.mp4", ios::app);
+        for (int i = 0; i < length_to_send; i++)
+        {
+            outfile << result_array[i];
+        }
+        outfile.close();
+        //std::cout << "Executed program succesfully." << std::endl;
     }
 
-    // Read the output buffer back to the Host
-    errNum = clEnqueueReadBuffer(commandQueue, memObjects[1], CL_TRUE,
-                                 0, length_source * sizeof(char), result_array,
-                                 0, NULL, NULL);
-    if (errNum != CL_SUCCESS)
-    {
-        std::cerr << "Error reading result buffer." << std::endl;
-        init_helper.Cleanup(context, commandQueue, program, kernel, memObjects);
-        return 1;
-    }
-
-    // Output the result buffer
-    for (int i = 0; i < length_source; i++)
-    {
-        std::cout << result_array[i] << " ";
-    }
-    std::cout << std::endl;
-    std::cout << "Executed program succesfully." << std::endl;
     init_helper.Cleanup(context, commandQueue, program, kernel, memObjects);
     delete[] source_array;
     delete[] result_array;
